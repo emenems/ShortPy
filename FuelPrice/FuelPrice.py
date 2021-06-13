@@ -3,6 +3,7 @@ import numpy as np
 import requests 
 from datetime import date, timedelta
 
+
 class FuelPrice:
     """Compute Fuel Price using input parameters
 
@@ -33,6 +34,8 @@ class FuelPrice:
 
         if self.price is None:
             price = self.get_average_price()
+        else:
+            price = self.price
 
         return np.round(self.consumption*self.distance*price/100 ,2)
 
@@ -49,6 +52,7 @@ class FuelPrice:
             print(f"Cena za jazdu: {self.comp_price()} €")
         else:
             print(f"Price for the ride: {self.comp_price()} €")
+
 
     def get_average_price(self,
                           lag: int = 14):
@@ -92,8 +96,28 @@ class FuelPrice:
 
 
 if __name__ == "__main__":
-    consumption = 3.3
-    distance = 74
+    
+    # For test = no user input
+    if len(sys.argv) == 1:
+        fp = FuelPrice(3.3,74,1.365)
+        fp.return_price()
 
-    fp = FuelPrice(consumption,distance)
-    fp.return_price()
+    else:
+        # Get user inputs and convert to floating numbers
+        consumption = float(sys.argv[1].replace(",","."))
+        distance = float(sys.argv[2].replace(",","."))
+
+        # get optional inputs
+        if len(sys.argv) >= 4:
+            price = float(sys.argv[3].replace(",","."))
+        else:
+            price = None
+
+        if len(sys.argv) >= 5:
+            fuel = sys.argv[4].lower()
+        else:
+            fuel = 'gasoline'
+
+        fp = FuelPrice(consumption,distance,price)
+
+        fp.return_price()
