@@ -25,6 +25,23 @@ Open [PyTo](https://pyto.app) and
 
 > Full shortcut on [iCloud](https://www.icloud.com/shortcuts/4b5c44e628274ed5b380523857292802)
 
+# Currency Convertor
+
+Simple currency convertor
+
+### **Python/PyTo**
+
+Open [PyTo](https://pyto.app) and 
+* save the file `Currencies/currencies.py`
+* test by running `currencies.py` 
+
+### **iOS shortcut**
+
+1. Ask from menu to select "FROM -> TO", e.g. "CZK -> EUR"
+2. Set the selected menu result item as `fromto` (meaning if "CZK -> EUR" set 'TEXT' to "CZK->EUR")
+3. Ask for value to be converted (simple Ask for Number with XYZ descruption)
+4. Save the result of the user input as `value`
+5. Call `currencies.py` with `fromto` and `value` arguments
 
 
 --------------
