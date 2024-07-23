@@ -1,10 +1,29 @@
 ShortPy
 =======
 
-Collection of scripts iOS shortcuts & Python (for non-commercial purposes only):
+Collection of iOS shortcuts & with (and without) Python scripts:
 
+
+# Restaurant Menu Bot
+
+> This shortcut requires installed ChatGPT + permissions to "Execute scripts" (in Shortcuts Settings)  
+> Shourtcut does not require Python
+
+1. Choose from menu (to get the location or restaurant)
+2. For each entry, set Text with the URL link (to the restaurant menu)
+3. Afte End Menu, insert "Get contents of ..." where ... is the Menu Result
+4. Set variable `menu` to "Content of the URL" output
+5. Ask for Text input (what do you fancy today?)
+6. Set variable `choice` to "Provided input"
+7. Insert standalone Text - put your prompt for GPT. For example, _Following is a restaurant menu. I need to select only those options that ..._
+8. Set variable `prompt` to the inserted Text
+9. Add "Ask ChatGPT" with input: '`prompt`: `menu`. This is my preference: `choice`'
+    * Recommended options of the shortcut: Start new chat, but without continuous chat and without Show When Run. Select a model of your choice (4o mini should be the fastest)
+10. Add Show "Ask ChatGPT" output
 
 # FuelPrice
+
+> Shourtcut does require Python (see dependencies)
 
 Compute price for your ride providing average consumption and distance. The script will query the price from Slovak Stats DB (you can modify the script easily to input the price manually)
 
@@ -29,6 +48,8 @@ Open [PyTo](https://pyto.app) and
 
 Simple currency convertor
 
+> Shourtcut does require Python (see dependencies)
+
 ### **Python/PyTo**
 
 Open [PyTo](https://pyto.app) and 
@@ -50,3 +71,9 @@ Open [PyTo](https://pyto.app) and
 * iOS version with shortcuts, tested on > 14.5
 * Python interpreter/REPL on iOS: [PyTo](https://pyto.app) including option to install PyPi ([Full Version](https://apps.apple.com/us/app/pyto-python-3/id1436650069?ign-mpt=uo%3D4) or Trial)
     * See  `requirements.txt` for the full list of PIP dependencies 
+* Allowed permissions to execute scripts
+
+## Disclaimer
+
+* No guarantee the code will run on your device :)
+* for non-commercial purposes only
