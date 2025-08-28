@@ -68,6 +68,8 @@ Open [PyTo](https://pyto.app) and
 
 [See the respective README](GithubTrending/readme.md)
 
+![GitHub Trending iOS Shortcut](GithubTrending/img/github_trending_gif.GIF)
+
 --------------
 # Dependencies
 
