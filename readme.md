@@ -66,7 +66,7 @@ Open [PyTo](https://pyto.app) and
 
 # Github Trending scraper
 
-[See the respective README](GithubTrending/README.md)
+[See the respective README](GithubTrending/readme.md)
 
 --------------
 # Dependencies
