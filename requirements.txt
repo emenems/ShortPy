@@ -3,3 +3,5 @@ pandas
 xlrd
 openpyxl
 forex-python
+requests
+beautifulsoup4

@@ -64,6 +64,9 @@ Open [PyTo](https://pyto.app) and
 4. Save the result of the user input as `value`
 5. Call `currencies.py` with `fromto` and `value` arguments
 
+# Github Trending scraper
+
+[See the respective README](GithubTrending/README.md)
 
 --------------
 # Dependencies
