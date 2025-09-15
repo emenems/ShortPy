@@ -18,4 +18,7 @@ Full source in `bicycle_summary.py`
 
 ![Bicycle record & summary - part1](img/bicycle_summary_1.png)
 
-![Bicycle record & summary - part2](img/bicycle_summary_2.jpg)
+![Bicycle record & summary - part2](img/bicycle_summary_2.png)
+
+![Bicycle record & summary - part3](img/bicycle_summary_3.png)
+
