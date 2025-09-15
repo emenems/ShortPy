@@ -70,6 +70,10 @@ Open [PyTo](https://pyto.app) and
 
 ![GitHub Trending iOS Shortcut](GithubTrending/img/github_trending_gif.GIF)
 
+# Bicycle record & summary
+
+[See the respective README](Bicycle/readme.md)
+
 --------------
 # Dependencies
 
