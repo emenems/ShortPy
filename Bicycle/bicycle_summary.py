@@ -1,6 +1,6 @@
 import re
 import sys
-from typing import Tuple, Optional
+from typing import Tuple
 from datetime import datetime
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -111,185 +111,6 @@ def power_to_calories(power_w: float, duration_min: float, gross_efficiency: flo
     return kcal
 
 
-def process_line(
-    line: str, weight_kg: float = 80.0, wind_speed: float = 1.0
-) -> Optional[Tuple[float, float, float, float]]:
-    """Process a single input line into duration, power, distance, and calories.
-
-    Args:
-        line (str): Input line containing duration and either power or distance.
-        weight_kg (float, optional): Weight of the rider in kg. Defaults to 80.0.
-        wind_speed (float, optional): Wind speed in m/s. Defaults to 1.
-
-    Returns:
-        Optional[Tuple[float, float, float, float]]: (duration_min, power_w, distance_km, calories),
-        or None if parsing fails.
-    """
-    match = re.match(r".*- (\d+)min @ ([\d,.]+) (Watt|km)", line.strip())
-    if not match:
-        return None
-
-    duration_min = float(match.group(1))
-    value = float(match.group(2).replace(",", "."))
-    unit = match.group(3)
-
-    if unit.lower().startswith("watt"):
-        power_w = value
-        _, distance_km = power_to_distance(power_w, duration_min, mass_kg=weight_kg, wind_speed=wind_speed)
-        calories = power_to_calories(power_w, duration_min)
-    else:
-        distance_km = value
-        power_w = distance_to_power(distance_km, duration_min, mass_kg=weight_kg, wind_speed=wind_speed)
-        calories = power_to_calories(power_w, duration_min)
-
-    return duration_min, power_w, distance_km, calories
-
-
-def process_all_entries(
-    text: str, weight_kg: float = 80.0, wind_speed: float = 1.0
-) -> Optional[Tuple[float, float, float, float, int, dict]]:
-    """Process multiple input lines and return totals.
-
-    Args:
-        text (str): Multiline string with one entry per line.
-        weight_kg (float): Weight of the rider in kg. Defaults to 80.0.
-        wind_speed (float): Wind speed in m/s. Defaults to 1.0.
-
-    Returns:
-        Optional[Tuple[float, float, float, float, int, dict]]: (total_minutes, total_distance, total_calories,
-            average_power, count, monthly_data)
-    """
-    total_minutes = 0.0
-    total_distance = 0.0
-    total_calories = 0.0
-    total_power = 0.0
-    count = 0
-    monthly_data = {}  # Store data by (year, month)
-
-    for line in text.strip().splitlines():
-        result = process_line(line, weight_kg=weight_kg, wind_speed=wind_speed)
-        if not result:
-            continue
-        duration_min, power_w, distance_km, calories = result
-        total_minutes += duration_min
-        total_distance += distance_km
-        total_calories += calories
-        total_power += power_w
-        count += 1
-
-        # Extract date from line
-        match = re.match(r"\s*-\s*(\d{2}\.\d{2}\.\d{4})\s*-\s*(\d+)min\s*@\s*([\d,.]+)\s*(Watt|km)", line.strip())
-        if match:
-            date_str = match.group(1)
-            try:
-                date = datetime.strptime(date_str, "%d.%m.%Y")
-                year_month = (date.year, date.month)
-                if year_month not in monthly_data:
-                    monthly_data[year_month] = {"distance": 0.0, "power": 0.0, "count": 0}
-                monthly_data[year_month]["distance"] += distance_km
-                monthly_data[year_month]["power"] += power_w
-                monthly_data[year_month]["count"] += 1
-            except ValueError:
-                continue
-
-    average_power = total_power / count if count > 0 else 0.0
-    return total_minutes, total_distance, total_calories, average_power, count, monthly_data
-
-
-def format_with_trend_arrow(
-    value: float,
-    average: float,
-    tolerance: float = 0.0,
-    unit: str = "",
-) -> str:
-    """
-    Returns a formatted string of the value with a trend arrow indicating how it compares to the average.
-
-    The arrow is:
-    - ↑ if value > average + tolerance
-    - ↓ if value < average - tolerance
-    - → if within tolerance of the average
-
-    Parameters
-    ----------
-    value : float
-        The current value to display (e.g., last ride's distance, power, or calories).
-    average : float
-        The overall average across all records for comparison.
-    tolerance : float, default 0.0
-        Threshold for considering the value "equal" to the average.
-        Recommended values:
-        - 0.1 for distance_km
-        - 2 for power_w
-        - 10 for calories
-        - 1 for duration_min
-    unit : str, default ""
-        Unit string to append (e.g., "km", "Watt", "kcal", "min").
-        Also used to determine default formatting precision.
-
-    Returns
-    -------
-    str
-        Formatted string in the form "XX.X unit arrow" (e.g., "21.3 km ↑").
-
-    Examples
-    --------
-    >>> format_with_trend_arrow(25.5, 21.1, tolerance=0.1, unit="km")
-    '25.5 km ↑'
-    >>> format_with_trend_arrow(160, 157, tolerance=2, unit="Watt")
-    '160 Watt →'
-    """
-    diff = value - average
-
-    if diff > tolerance:
-        arrow = " ↑"
-    elif diff < -tolerance:
-        arrow = " ↓"
-    else:
-        arrow = " →"
-
-    # Determine formatting based on unit (common cycling metrics)
-    if unit.lower() in ["km", "distance"]:
-        formatted_value = f"{value:.1f}"
-    elif unit.lower() in ["watt", "w", "power"]:
-        formatted_value = f"{value:.0f}"
-    elif unit.lower() in ["kcal", "calories"]:
-        formatted_value = f"{value:.0f}"
-    elif unit.lower() in ["min", "minutes"]:
-        formatted_value = f"{value:.0f}"
-    else:
-        # Fallback: 1 decimal place
-        formatted_value = f"{value:.1f}"
-
-    # Strip any leading/trailing space from unit if empty
-    unit_part = f" {unit}" if unit else ""
-    return f"{formatted_value}{unit_part}{arrow}"
-
-
-def print_last_entry_stats(df: pd.DataFrame) -> None:
-    """
-    Prints the last entry statistics with trend arrows compared to overall averages.
-    """
-    if df.empty:
-        return
-
-    # Precompute averages
-    avg_distance = df["distance_km"].mean()
-    avg_power = df["power_w"].mean()
-    avg_calories = df["calories"].mean()
-
-    # Last ride
-    last = df.iloc[-1]
-
-    print(
-        "Last entry statistics:\n"
-        f"  - duration: {format_with_trend_arrow(last['duration_min'], df['duration_min'].mean(), tolerance=1, unit='min')}\n"
-        f"  - distance: {format_with_trend_arrow(last['distance_km'], avg_distance, tolerance=0.1, unit='km')}\n"
-        f"  - calories: {format_with_trend_arrow(last['calories'], avg_calories, tolerance=10, unit='kcal')}\n"
-        f"  - power: {format_with_trend_arrow(last['power_w'], avg_power, tolerance=2, unit='Watt')}\n"
-    )
-
-
 def entries_to_dataframe(text: str, weight_kg: float = 80.0, wind_speed: float = 1.0) -> pd.DataFrame:
     """
     Parse cycling entries using pandas for easier analysis.
@@ -344,7 +165,7 @@ def entries_to_dataframe(text: str, weight_kg: float = 80.0, wind_speed: float =
     return df
 
 
-def generate_ascii_bar(value: float, max_value: float, max_length: int = 10) -> str:
+def generate_ascii_bar(value: float, max_value: float, max_length: int = 13) -> str:
     """Generate an ASCII bar representation for a value.
 
     Args:
@@ -360,6 +181,230 @@ def generate_ascii_bar(value: float, max_value: float, max_length: int = 10) -> 
     bar_length = int((value / max_value) * max_length)
     bar_length = max(0, min(bar_length, max_length))
     return "|" + "█" * bar_length + " " * (max_length - bar_length)
+
+
+def format_with_trend_arrow(
+    value: float,
+    average: float,
+    tolerance: float = 0.1,
+    unit: str = "",
+) -> str:
+    """
+    Returns a formatted string of the value with a trend arrow indicating how it compares to the average.
+
+    The arrow is:
+    - ↑ if value > average + tolerance
+    - ↓ if value < average - tolerance
+    - → if within tolerance of the average
+
+    Parameters
+    ----------
+    value : float
+        The current value to display (e.g., last ride's distance, power, or calories).
+    average : float
+        The overall average across all records for comparison.
+    tolerance : float, default 0.1
+        Threshold for considering the value "equal" to the average.
+        Recommended values:
+        - 0.1 for distance_km
+        - 2 for power_w
+        - 10 for calories
+        - 1 for duration_min
+    unit : str, default ""
+        Unit string to append (e.g., "km", "Watt", "kcal", "min").
+        Also used to determine default formatting precision.
+
+    Returns
+    -------
+    str
+        Formatted string in the form "XX.X unit arrow" (e.g., "21.3 km ↑").
+
+    Examples
+    --------
+    >>> format_with_trend_arrow(25.5, 21.1, tolerance=0.1, unit="km")
+    '25.5 km ↑'
+    >>> format_with_trend_arrow(160, 157, tolerance=2, unit="Watt")
+    '160 Watt →'
+    """
+    diff = value - average
+
+    if diff > tolerance:
+        arrow = " ↑"
+    elif diff < -tolerance:
+        arrow = " ↓"
+    else:
+        arrow = " →"
+
+    if unit.lower() in ["km", "distance"]:
+        formatted_value = f"{value:.1f}"
+    elif unit.lower() in ["watt", "w", "power"]:
+        formatted_value = f"{value:.0f}"
+    elif unit.lower() in ["kcal", "calories"]:
+        formatted_value = f"{value:.0f}"
+    elif unit.lower() in ["min", "minutes"]:
+        formatted_value = f"{value:.0f}"
+    else:
+        formatted_value = f"{value:.1f}"
+
+    # Strip any leading/trailing space from unit if empty
+    unit_part = f" {unit}" if unit else ""
+    return f"{formatted_value}{unit_part}{arrow}"
+
+
+def print_stats(df: pd.DataFrame, add_totals: bool = False, add_average: bool = False) -> None:
+    """
+    Prints the last entry statistics with trend arrows compared to overall averages.
+    """
+    if df.empty:
+        return
+
+    # Last ride
+    last = df.iloc[-1]
+    year = last["date"].year
+
+    # Overall averages - this and previous year
+    df_year = df[df["date"].dt.year == year]
+    df_prev_year = df[df["date"].dt.year == year - 1]
+
+    if df_prev_year.empty:
+        df_prev_year = pd.DataFrame(columns=df.columns, data=[[0] * len(df.columns)])
+
+    print(
+        "Last entry:\n"
+        f"  - duration: {format_with_trend_arrow(last['duration_min'], df_year['duration_min'].mean(), tolerance=1, unit='min')}\n"
+        f"  - distance: {format_with_trend_arrow(last['distance_km'], df_year['distance_km'].mean(), tolerance=0.1, unit='km')}\n"
+        f"  - calories: {format_with_trend_arrow(last['calories'], df_year['calories'].mean(), tolerance=10, unit='kcal')}\n"
+        f"  - power: {format_with_trend_arrow(last['power_w'], df_year['power_w'].mean(), tolerance=2, unit='Watt')}\n"
+    )
+    if add_average:
+        print(
+            f"Average statistics vs {year - 1}:\n  "
+            f"- duration: {df_year.duration_min.mean():.0f} vs {df_prev_year.duration_min.mean():.0f} min\n  "
+            f"- distance/ride: {df_year.distance_km.mean():.1f} vs {df_prev_year.distance_km.mean():.1f} km\n  "
+            f"- calories: {df_year.calories.mean():.0f} vs {df_prev_year.calories.mean():.0f} kcal\n  "
+            f"- power: {df_year.power_w.mean():.0f} vs {df_prev_year.power_w.mean():.0f} Watt\n"
+        )
+    if add_totals or df_prev_year.distance_km.sum() == 0:
+        print(
+            f"Totals in {year}:\n  "
+            f"- duration: {df_year.duration_min.sum():.0f}\n  "
+            f"- distance: {df_year.distance_km.sum():.1f}\n  "
+            f"- calories: {df_year.calories.sum():.0f}\n  "
+            f"- Rides: {df_year.shape[0]}\n"
+        )
+
+
+def print_charts(df_monthly: pd.DataFrame, last_x: int = 3) -> None:
+    """
+    Prints ASCII bar charts for the last X months of cycling statistics.
+    """
+    metrics = [
+        ("distance_mean_km", "Mean Distance", "{:.1f}km"),
+        ("power_mean_w", "Mean Power", "{:.0f}W"),
+        ("count", "Rides", "{:.0f}"),
+    ]
+    last_x_months = df_monthly.tail(last_x)
+    ascii_bars = {}
+    for col, _, _ in metrics:
+        max_val = last_x_months[col].max() if last_x_months[col].max() > 0 else 1
+        ascii_bars[col] = [generate_ascii_bar(val, max_val) for val in last_x_months[col]]
+    for _, (col, label, fmt) in enumerate(metrics):
+        print(f"{label} (last {last_x} months):")
+        for i in range(last_x):
+            print(f"{ascii_bars[col][i]} {fmt.format(last_x_months[col].iloc[i])}")
+        print("")
+
+
+def plot_distance(df: pd.DataFrame, df_monthly: pd.DataFrame) -> None:
+    """
+    Plot cumulative distance over time.
+
+    Args:
+        df (pd.DataFrame): DataFrame with cycling entries.
+    """
+    df_monthly.index = df_monthly.index.to_timestamp()
+    df_monthly = df_monthly.reset_index()
+    df_monthly = df_monthly.rename(columns={"index": "date"})
+    df_monthly.date = pd.to_datetime(df_monthly.date) + pd.offsets.DateOffset(days=15)
+    df.date = pd.to_datetime(df.date)
+    df_plot = pd.merge(
+        df[["date", "distance_cumsum_km"]], df_monthly[["date", "distance_sum_km"]], on="date", how="outer"
+    )
+
+    _, ax1 = plt.subplots(figsize=(10, 6))
+    ax1.set_xlabel("Date")
+    ax1.set_ylabel("Monthly Distance (km)", color="tab:blue")
+    ax1.bar(
+        df_plot["date"],
+        df_plot["distance_sum_km"],
+        label="Monthly Distance",
+        color="tab:blue",
+        width=28,
+    )
+    ax1.tick_params(axis="y", labelcolor="tab:blue")
+    ax2 = ax1.twinx()
+    ax2.set_ylabel("Cumulative Distance (km)", color="tab:red")
+    ax2.plot(
+        df_plot["date"],
+        df_plot["distance_cumsum_km"],
+        label="Cumulative Distance",
+        color="tab:red",
+        linewidth=2,
+    )
+    ax2.tick_params(axis="y", labelcolor="tab:red")
+
+    plt.tight_layout()
+    plt.show()
+
+
+def print_yearly_goals(df: pd.DataFrame) -> None:
+    """Print progress towards matching previous year's totals."""
+    if df.empty:
+        return
+
+    current_year = df["date"].dt.year.max()
+    df_current = df[df["date"].dt.year == current_year]
+    df_prev = df[df["date"].dt.year == current_year - 1]
+
+    if df_prev.empty:
+        return
+
+    # Previous year totals = goals for current year
+    goal_distance = df_prev["distance_km"].sum()
+    goal_rides = len(df_prev)
+    goal_calories = df_prev["calories"].sum()
+    goal_duration = df_prev["duration_min"].sum()
+
+    # Current progress
+    curr_distance = df_current["distance_km"].sum()
+    curr_rides = len(df_current)
+    curr_calories = df_current["calories"].sum()
+    curr_duration = df_current["duration_min"].sum()
+
+    def progress_bar(current: float, goal: float, width: int = 13) -> str:
+        if goal == 0:
+            return "░" * width
+        ratio = min(current / goal, 1.0)
+        filled = int(ratio * width)
+        return "█" * filled + "░" * (width - filled)
+
+    def pct(current: float, goal: float) -> int:
+        return int(100 * current / goal) if goal > 0 else 0
+
+    print(f"Compared to {current_year - 1}:")
+    print(
+        f"Distance: {curr_distance:.1f} / {goal_distance:.1f} km\n|{progress_bar(curr_distance, goal_distance)} {pct(curr_distance, goal_distance):2}%"
+    )
+    print(
+        f"Calories: {curr_calories:.0f} / {goal_calories:.0f}kcal\n|{progress_bar(curr_calories, goal_calories)} {pct(curr_calories, goal_calories):2}%"
+    )
+    print(
+        f"Duration: {curr_duration:.0f} / {goal_duration:.0f} min\n|{progress_bar(curr_duration, goal_duration)} {pct(curr_duration, goal_duration):2}%"
+    )
+    print(
+        f"Rides: {curr_rides:.0f} / {goal_rides:.0f}\n|{progress_bar(curr_rides, goal_rides)} {pct(curr_rides, goal_rides):2}%"
+    )
+    print("")
 
 
 if __name__ == "__main__":
@@ -395,21 +440,7 @@ if __name__ == "__main__":
             equivalent_append_distance = ""
         else:
             equivalent_append_wattage = ""
-        print_last_entry_stats(df)
-
-        print(
-            f"Average statistics:\n  "
-            f"- duration: {df.duration_min.mean():.0f} min\n  "
-            f"- distance/ride: {df.distance_km.mean():.1f} km\n  "
-            f"- distance/day: {df.distance_km.sum() / (df.date.max() - df.date.min()).days:.1f} km\n  "
-            f"- calories: {df.calories.mean():.0f} kcal\n  "
-            f"- power: {df.power_w.mean():.0f} Watt\n\n"
-            f"Total statistics:\n  "
-            f"- duration: {df.duration_min.sum():.0f} min\n  "
-            f"- distance: {df.distance_km.sum():.1f} km\n  "
-            f"- calories: {df.calories.sum():.0f} kcal\n  "
-            f"- number of rides: {df.shape[0]}\n  "
-        )
+        print_stats(df)
 
         # Monthly comparison
         df_monthly = df.groupby(df["date"].dt.to_period("M")).agg(
@@ -418,73 +449,14 @@ if __name__ == "__main__":
             power_mean_w=("power_w", "mean"),
             count=("date", "count"),
         )
-        # ensure existance of last 3 months
+        # ensure existance of all months in previous 12 months
         all_periods = pd.period_range(df["date"].iloc[-1] - pd.DateOffset(months=12), df["date"].iloc[-1], freq="M")
         df_monthly = df_monthly.reindex(all_periods, fill_value=0)
 
-        # Find maximum values for scaling bars
-        max_distance = df_monthly.tail(3)["distance_mean_km"].max()
-        max_power = df_monthly.tail(3)["power_mean_w"].max()
+        print_charts(df_monthly)
 
-        # Generate ASCII bars
-        three_distance_bar = generate_ascii_bar(df_monthly.tail(3).distance_mean_km.iloc[0], max_distance)
-        two_distance_bar = generate_ascii_bar(df_monthly.tail(3).distance_mean_km.iloc[1], max_distance)
-        current_distance_bar = generate_ascii_bar(df_monthly.tail(3).distance_mean_km.iloc[2], max_distance)
-        three_power_bar = generate_ascii_bar(df_monthly.tail(3).power_mean_w.iloc[0], max_power if max_power > 0 else 1)
-        two_power_bar = generate_ascii_bar(df_monthly.tail(3).power_mean_w.iloc[1], max_power if max_power > 0 else 1)
-        current_power_bar = generate_ascii_bar(
-            df_monthly.tail(3).power_mean_w.iloc[2], max_power if max_power > 0 else 1
-        )
-        max_count = df_monthly.tail(3)["count"].max() if df_monthly.tail(3)["count"].max() > 0 else 1
-        three_count_bar = generate_ascii_bar(df_monthly.tail(3)["count"].iloc[0], max_count)
-        two_count_bar = generate_ascii_bar(df_monthly.tail(3)["count"].iloc[1], max_count)
-        current_count_bar = generate_ascii_bar(df_monthly.tail(3)["count"].iloc[2], max_count)
-        print(
-            f"Last 3 months - Mean Distance:\n"
-            f"{three_distance_bar} {df_monthly.tail(3).distance_mean_km.iloc[0]:.1f}km\n"
-            f"{two_distance_bar} {df_monthly.tail(3).distance_mean_km.iloc[1]:.1f}km\n"
-            f"{current_distance_bar} {df_monthly.tail(3).distance_mean_km.iloc[2]:.1f}km\n\n"
-            f"Average Power:\n"
-            f"{three_power_bar} {df_monthly.tail(3).power_mean_w.iloc[0]:.1f}W\n"
-            f"{two_power_bar} {df_monthly.tail(3).power_mean_w.iloc[1]:.1f}W\n"
-            f"{current_power_bar} {df_monthly.tail(3).power_mean_w.iloc[2]:.1f}W\n\n"
-            f"Number of rides:\n"
-            f"{three_count_bar} {df_monthly.tail(3)['count'].iloc[0]:.0f}\n"
-            f"{two_count_bar} {df_monthly.tail(3)['count'].iloc[1]:.0f}\n"
-            f"{current_count_bar} {df_monthly.tail(3)['count'].iloc[2]:.0f}\n"
-        )
+        print_yearly_goals(df)
 
+        # optional plotting of cumulative and monthly distance
         if plot_arg.lower() == "plot" and df.empty is False:
-            df_monthly.index = df_monthly.index.to_timestamp()
-            df_monthly = df_monthly.reset_index()
-            df_monthly = df_monthly.rename(columns={"index": "date"})
-            df_monthly.date = pd.to_datetime(df_monthly.date) + pd.offsets.DateOffset(days=15)
-            df.date = pd.to_datetime(df.date)
-            df_plot = pd.merge(
-                df[["date", "distance_cumsum_km"]], df_monthly[["date", "distance_sum_km"]], on="date", how="outer"
-            )
-
-            fig, ax1 = plt.subplots(figsize=(10, 6))
-            ax1.set_xlabel("Date")
-            ax1.set_ylabel("Monthly Distance (km)", color="tab:blue")
-            bars = ax1.bar(
-                df_plot["date"],
-                df_plot["distance_sum_km"],
-                label="Monthly Distance",
-                color="tab:blue",
-                width=28,
-            )
-            ax1.tick_params(axis="y", labelcolor="tab:blue")
-            ax2 = ax1.twinx()
-            ax2.set_ylabel("Cumulative Distance (km)", color="tab:red")
-            line = ax2.plot(
-                df_plot["date"],
-                df_plot["distance_cumsum_km"],
-                label="Cumulative Distance",
-                color="tab:red",
-                linewidth=2,
-            )
-            ax2.tick_params(axis="y", labelcolor="tab:red")
-
-            plt.tight_layout()
-            plt.show()
+            plot_distance(df, df_monthly)
